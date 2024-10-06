@@ -26,7 +26,7 @@ public class WebScraper {
 
             // Scroll down twice to load more content
             JavascriptExecutor js = (JavascriptExecutor) driver;
-            for (int i = 0; i < 1; i++) { // Scroll twice
+            for (int i = 0; i < 1; i++) { // Scroll once
                 js.executeScript("window.scrollBy(0, document.body.scrollHeight);");
                 Thread.sleep(2000); // Wait for new content to load, adjust as needed
             }
@@ -48,9 +48,35 @@ public class WebScraper {
                 packageList.add(new Package(title, description, price, link));
             }
 
+            // Extract FAQ section
+            List<WebElement> faqs = driver.findElements(By.cssSelector(".faq-item-wrapper"));
+            List<FAQ> faqList = new ArrayList<>();
+
+            // Loop through the FAQ items
+            for (WebElement faqItem : faqs) {
+                // Click the FAQ header to reveal the answer
+                WebElement faqHeader = faqItem.findElement(By.cssSelector(".faq-header-wrapper"));
+                faqHeader.click();  // Simulate click to expand the answer
+
+                // Extract question and answers
+                String question = faqItem.findElement(By.cssSelector(".faq-item-heading")).getText();
+                List<WebElement> answersElements = faqItem.findElements(By.cssSelector("[data-faq-type='answer']"));
+                List<String> answers = new ArrayList<>();
+
+                for (WebElement answer : answersElements) {
+                    answers.add(answer.getText());
+                }
+
+                // Create an FAQ object and add it to the list
+                faqList.add(new FAQ(question, answers));
+            }
+
+            // Create a final object to hold both the package and FAQ data
+            ScrapedData scrapedData = new ScrapedData(packageList, faqList);
+
             // Convert the list to JSON format
             Gson gson = new Gson();
-            String jsonOutput = gson.toJson(packageList);
+            String jsonOutput = gson.toJson(scrapedData);
 
             // Write the JSON output to a file
             try (FileWriter jsonWriter = new FileWriter("scraped_data.json")) {
@@ -67,7 +93,7 @@ public class WebScraper {
         }
     }
 
-    // Package class to hold the data
+    // Package class to hold the package data
     static class Package {
         private String title;
         private String description;
@@ -79,6 +105,28 @@ public class WebScraper {
             this.description = description;
             this.price = price;
             this.link = link;
+        }
+    }
+
+    // FAQ class to hold the FAQ data
+    static class FAQ {
+        private String question;
+        private List<String> answers;
+
+        public FAQ(String question, List<String> answers) {
+            this.question = question;
+            this.answers = answers;
+        }
+    }
+
+    // Class to hold the overall scraped data
+    static class ScrapedData {
+        private List<Package> packages;
+        private List<FAQ> faqs;
+
+        public ScrapedData(List<Package> packages, List<FAQ> faqs) {
+            this.packages = packages;
+            this.faqs = faqs;
         }
     }
 }
