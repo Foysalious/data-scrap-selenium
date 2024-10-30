@@ -1,3 +1,4 @@
+// File: Assignment2.java
 package scraper;
 
 import com.google.gson.Gson;
@@ -5,201 +6,163 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.PriorityQueue;
 import java.util.Scanner;
 
-// Class representing a node in the AVL tree
-class AVLNode {
-    String word;  // The word stored in the node
-    int frequency; // Frequency of the word
-    AVLNode left; // Left child
-    AVLNode right; // Right child
-    int height;   // Height of the node
+// Node class to represent each word and frequency in the AVL Tree
+class WordNode {
+    String word;
+    int frequency;
+    WordNode left;
+    WordNode right;
+    int height;
 
-    AVLNode(String word) {
+    WordNode(String word, int frequency) {
         this.word = word;
-        this.frequency = 1; // Initialize frequency to 1
-        this.height = 1; // Initialize height
+        this.frequency = frequency;
+        this.height = 1;
     }
 }
 
-// Class implementing the AVL tree for autocomplete functionality
-class Assignment2 {
-    private AVLNode root; // Root of the AVL tree
+// AVL Tree for storing and retrieving words with autocomplete functionality
+class AutocompleteTree {
+    private WordNode root;
 
-    // Insert a word into the AVL tree
-    public AVLNode insert(AVLNode node, String word) {
-        if (node == null) {
-            return new AVLNode(word); // Create a new node
-        }
+    // Insert a word into the AVL tree with given frequency
+    public WordNode insert(WordNode node, String word, int frequency) {
+        if (node == null) return new WordNode(word, frequency);
 
-        // Perform normal BST insert
         if (word.compareTo(node.word) < 0) {
-            node.left = insert(node.left, word);
+            node.left = insert(node.left, word, frequency);
         } else if (word.compareTo(node.word) > 0) {
-            node.right = insert(node.right, word);
+            node.right = insert(node.right, word, frequency);
         } else {
-            node.frequency++; // Increment frequency if word already exists
-            return node; // Return unchanged node
+            node.frequency += frequency;
+            return node;
         }
 
-        // Update the height of the ancestor node
         node.height = 1 + Math.max(getHeight(node.left), getHeight(node.right));
-
-        // Get the balance factor
         int balance = getBalance(node);
 
-        // Perform rotations to balance the tree
-        if (balance > 1 && word.compareTo(node.left.word) < 0) {
-            return rightRotate(node); // Left Left case
-        }
-        if (balance < -1 && word.compareTo(node.right.word) > 0) {
-            return leftRotate(node); // Right Right case
-        }
+        if (balance > 1 && word.compareTo(node.left.word) < 0) return rotateRight(node);
+        if (balance < -1 && word.compareTo(node.right.word) > 0) return rotateLeft(node);
         if (balance > 1 && word.compareTo(node.left.word) > 0) {
-            node.left = leftRotate(node.left); // Left Right case
-            return rightRotate(node);
+            node.left = rotateLeft(node.left);
+            return rotateRight(node);
         }
         if (balance < -1 && word.compareTo(node.right.word) < 0) {
-            node.right = rightRotate(node.right); // Right Left case
-            return leftRotate(node);
+            node.right = rotateRight(node.right);
+            return rotateLeft(node);
         }
 
-        return node; // Return the (potentially) new root
+        return node;
     }
 
-    // Helper method to perform a right rotation
-    private AVLNode rightRotate(AVLNode y) {
-        AVLNode x = y.left;
-        AVLNode T2 = x.right;
-
-        // Perform rotation
+    // Perform right rotation
+    private WordNode rotateRight(WordNode y) {
+        WordNode x = y.left;
+        WordNode temp = x.right;
         x.right = y;
-        y.left = T2;
+        y.left = temp;
 
-        // Update heights
         y.height = Math.max(getHeight(y.left), getHeight(y.right)) + 1;
         x.height = Math.max(getHeight(x.left), getHeight(x.right)) + 1;
 
-        return x; // Return the new root
+        return x;
     }
 
-    // Helper method to perform a left rotation
-    private AVLNode leftRotate(AVLNode x) {
-        AVLNode y = x.right;
-        AVLNode T2 = y.left;
-
-        // Perform rotation
+    // Perform left rotation
+    private WordNode rotateLeft(WordNode x) {
+        WordNode y = x.right;
+        WordNode temp = y.left;
         y.left = x;
-        x.right = T2;
+        x.right = temp;
 
-        // Update heights
         x.height = Math.max(getHeight(x.left), getHeight(x.right)) + 1;
         y.height = Math.max(getHeight(y.left), getHeight(y.right)) + 1;
 
-        return y; // Return the new root
+        return y;
     }
 
-    // Get the height of a node
-    private int getHeight(AVLNode node) {
+    private int getHeight(WordNode node) {
         return node == null ? 0 : node.height;
     }
 
-    // Get the balance factor of a node
-    private int getBalance(AVLNode node) {
+    private int getBalance(WordNode node) {
         return node == null ? 0 : getHeight(node.left) - getHeight(node.right);
     }
 
-    // Search for words with a given prefix
-    public List<String> autocomplete(AVLNode node, String prefix) {
-        List<String> results = new ArrayList<>();
-        searchWithPrefix(node, prefix, results);
-        return results;
+    public void addWord(String word, int frequency) {
+        root = insert(root, word.toLowerCase(), frequency);
     }
 
-    // Recursive method to search for words with the given prefix
-    private void searchWithPrefix(AVLNode node, String prefix, List<String> results) {
-        if (node == null) {
-            return;
-        }
+    public PriorityQueue<WordNode> getSuggestions(String prefix) {
+        PriorityQueue<WordNode> suggestions = new PriorityQueue<>((a, b) -> b.frequency - a.frequency);
+        searchPrefix(root, prefix.toLowerCase(), suggestions);
+        return suggestions;
+    }
 
-        // Check if the current word starts with the prefix
+    // Recursive search method to find nodes with words starting with the given prefix
+    private void searchPrefix(WordNode node, String prefix, PriorityQueue<WordNode> suggestions) {
+        if (node == null) return;
+
         if (node.word.startsWith(prefix)) {
-            results.add(node.word); // Add the word to results
+            suggestions.add(node);
         }
-
-        // Search left and right subtrees
-        searchWithPrefix(node.left, prefix, results);
-        searchWithPrefix(node.right, prefix, results);
-    }
-
-    // Method to initiate insertion of words
-    public void insertWord(String word) {
-        root = insert(root, word.toLowerCase()); // Insert word in lowercase
-    }
-
-    // Method to initiate autocomplete functionality
-    public List<String> autocomplete(String prefix) {
-        return autocomplete(root, prefix.toLowerCase()); // Get autocomplete suggestions
+        searchPrefix(node.left, prefix, suggestions);
+        searchPrefix(node.right, prefix, suggestions);
     }
 }
 
-// Class to represent the entire JSON structure
-class ScrapedData {
-    List<DictionaryEntry> packages; // List of package entries
-}
-
-// Class to represent each package entry
-class DictionaryEntry {
-    String title; // Title of the package
-    String description; // Description of the package
-    String price; // Price of the package
-    String link; // Link to the package (optional)
-}
-
-class Main {
+// Main class for JSON processing and autocomplete interaction
+public class Assignment2 {
     public static void main(String[] args) {
-        Assignment2 avlTree = new Assignment2(); // AVL tree for autocomplete
-        Gson gson = new Gson(); // Gson instance for JSON parsing
-
-        // Debugging the current directory
-        System.out.println("Current working directory: " + System.getProperty("user.dir"));
+        AutocompleteTree avlTree = new AutocompleteTree();
+        Gson gson = new Gson();
 
         try (FileReader reader = new FileReader("scraped_data.json")) {
-            // Deserialize JSON into ScrapedData object
             ScrapedData scrapedData = gson.fromJson(reader, ScrapedData.class);
-
-            // Insert titles from packages into the AVL tree
             for (DictionaryEntry entry : scrapedData.packages) {
                 if (entry.title != null) {
-                    avlTree.insertWord(entry.title); // Insert lowercase for uniformity
+                    avlTree.addWord(entry.title, 1);
                 }
             }
         } catch (IOException e) {
-            e.printStackTrace(); // Handle IO exceptions
+            e.printStackTrace();
         } catch (com.google.gson.JsonSyntaxException e) {
-            System.err.println("Malformed JSON: " + e.getMessage()); // Handle JSON syntax errors
+            System.err.println("Malformed JSON: " + e.getMessage());
         }
 
-        // Create a scanner for user input
         Scanner scanner = new Scanner(System.in);
         System.out.println("Enter a prefix to autocomplete (type 'exit' to quit):");
 
-        // Loop to accept user input until 'exit' is entered
         while (true) {
             String input = scanner.nextLine().trim();
-            if (input.equalsIgnoreCase("exit")) {
-                break; // Exit the loop if the user types 'exit'
-            }
+            if (input.equalsIgnoreCase("exit")) break;
 
-            // Get autocomplete results and display them
-            List<String> results = avlTree.autocomplete(input);
+            PriorityQueue<WordNode> results = avlTree.getSuggestions(input);
             if (results.isEmpty()) {
                 System.out.println("No suggestions found for: " + input);
             } else {
-                System.out.println("Autocomplete results for '" + input + "': " + results);
+                System.out.println("Autocomplete results for '" + input + "': ");
+                for (WordNode node : results) {
+                    System.out.println(node.word + " (frequency: " + node.frequency + ")");
+                }
             }
         }
 
-        scanner.close(); // Close the scanner
+        scanner.close();
     }
+}
+
+// Supporting classes for JSON structure
+class ScrapedData {
+    List<DictionaryEntry> packages;
+}
+
+class DictionaryEntry {
+    String title;
+    String description;
+    String price;
+    String link;
 }
